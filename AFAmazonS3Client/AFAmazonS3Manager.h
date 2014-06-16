@@ -23,6 +23,17 @@
 #import "AFHTTPRequestOperationManager.h"
 #import "AFAmazonS3RequestSerializer.h"
 
+typedef enum{
+	AFAmazonPermissionUndefined,
+	AFAmazonPermissionPrivate,
+	AFAmazonPermissionPublicRead,
+	AFAmazonPermissionPublicReadWrite,
+	AFAmazonPermissionAuthenticatedRead,
+	AFAmazonPermissionBucketOwnerRead,
+	AFAmazonPermissionOwnerFullControl
+}AFAmazonPermissionType;
+
+
 /**
  AFAmazonS3Client` is an `AFHTTPClient` subclass for interacting with the Amazon S3 webservice API (http://aws.amazon.com/s3/).
  */
@@ -30,7 +41,7 @@
 
 /**
  The base URL for the S3 manager.
-
+ 
  @discussion By default, the `baseURL` of `AFAmazonS3Client` is derived from the `bucket` and `region` values. If `baseURL` is set directly, it will override the default `baseURL` and disregard values set for the `bucket`, `region`, and `useSSL` properties.
  */
 @property (readonly, nonatomic, strong) NSURL *baseURL;
@@ -42,7 +53,7 @@
 
 /**
  Initializes and returns a newly allocated Amazon S3 client with specified credentials.
-
+ 
  This is the designated initializer.
  
  @param accessKey The AWS access key.
@@ -195,6 +206,16 @@
                   success:(void (^)(id responseObject))success
                   failure:(void (^)(NSError *error))failure;
 
+//TODO: Needs documentation
+- (void)putObjectWithData:(NSData *)data
+			   permission:(AFAmazonPermissionType)permission
+          destinationPath:(NSString *)destinationPath
+               parameters:(NSDictionary *)parameters
+                 progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progress
+                  success:(void (^)(id responseObject))success
+                  failure:(void (^)(NSError *error))failure;
+
+
 /**
  Deletes the specified object. Once deleted, there is no method to restore or undelete an object.
  
@@ -214,7 +235,7 @@
 
 /**
  ## Error Domain
-
+ 
  `AFAmazonS3ManagerErrorDomain`
  AFAmazonS3Manager errors. Error codes for `AFAmazonS3ManagerErrorDomain` correspond to codes in `NSURLErrorDomain`.
  */

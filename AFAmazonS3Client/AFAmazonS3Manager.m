@@ -36,23 +36,23 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
     if (!self) {
         return nil;
     }
-
+	
     self.requestSerializer = [AFAmazonS3RequestSerializer serializer];
     self.responseSerializer = [AFXMLParserResponseSerializer serializer];
-
+	
     return self;
 }
 
 - (id)initWithAccessKeyID:(NSString *)accessKey
                    secret:(NSString *)secret
 {
-    self = [self init];
+    self = [self initWithBaseURL:nil];
     if (!self) {
         return nil;
     }
-
+	
     [self.requestSerializer setAccessKeyID:accessKey secret:secret];
-
+	
     return self;
 }
 
@@ -136,7 +136,7 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
             failure(error);
         }
     }];
-
+	
     [self.operationQueue addOperation:requestOperation];
 }
 
@@ -204,6 +204,21 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
     [self setObjectWithMethod:@"PUT" file:path destinationPath:destinationPath parameters:parameters progress:progress success:success failure:failure];
 }
 
+- (void)putObjectWithData:(NSData *)data
+			   permission:(AFAmazonPermissionType)permission
+          destinationPath:(NSString *)destinationPath
+               parameters:(NSDictionary *)parameters
+                 progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progress
+                  success:(void (^)(id responseObject))success
+                  failure:(void (^)(NSError *error))failure
+{
+	[self addPermissionHeadersForType:permission];
+    [self setObjectWithMethod:@"PUT" data:data destinationPath:destinationPath parameters:parameters progress:progress success:success failure:failure
+	 ];
+}
+
+
+
 - (void)deleteObjectWithPath:(NSString *)path
                      success:(void (^)(id responseObject))success
                      failure:(void (^)(NSError *error))failure
@@ -222,25 +237,32 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
     NSMutableURLRequest *fileRequest = [NSMutableURLRequest requestWithURL:[NSURL fileURLWithPath:filePath]];
     [fileRequest setCachePolicy:NSURLCacheStorageNotAllowed];
 	
-    NSURLResponse *response = nil;
     NSError *fileError = nil;
-    NSData *data = [NSURLConnection sendSynchronousRequest:fileRequest returningResponse:&response error:&fileError];
+	NSURLResponse *response = nil;
 	
-    if (data && response) {
-        NSMutableURLRequest *request = [self.requestSerializer multipartFormRequestWithMethod:method URLString:[[self.baseURL URLByAppendingPathComponent:destinationPath] absoluteString] parameters:parameters constructingBodyWithBlock:^(id <AFMultipartFormData> formData) {
-            if (![parameters valueForKey:@"key"]) {
-                [formData appendPartWithFormData:[[filePath lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding] name:@"key"];
-            }
-            [formData appendPartWithFileData:data name:@"file" fileName:[filePath lastPathComponent] mimeType:[response MIMEType]];
-        } error:nil];
+	NSData *data = [NSURLConnection sendSynchronousRequest:fileRequest returningResponse:&response error:&fileError];
+	if (data && response) {
+		
+		[self setObjectWithMethod:method data:data destinationPath:destinationPath parameters:parameters progress:progress success:success failure:failure];
+		
+    }
+}
 
-//        NSURL *temporaryFileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]]];
-//        request = [self.requestSerializer requestWithMultipartFormRequest:request writingStreamContentsToFile:temporaryFileURL completionHandler:^(NSError *error) {
-//            if (!error) {
-//                [request setHTTPBody:[NSData dataWithContentsOfFile:[temporaryFileURL absoluteString]]];
-//            }
-//        }];
-
+- (void)setObjectWithMethod:(NSString *)method
+                       data:(NSData *)data
+            destinationPath:(NSString *)destinationPath
+                 parameters:(NSDictionary *)parameters
+                   progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progress
+                    success:(void (^)(id responseObject))success
+                    failure:(void (^)(NSError *error))failure{
+	
+	if (data) {
+        
+        NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:method URLString:[[self.baseURL URLByAppendingPathComponent:destinationPath] absoluteString] parameters:parameters error:nil];
+        request.HTTPBody = data;
+		
+		
+		
         AFHTTPRequestOperation *requestOperation = [self HTTPRequestOperationWithRequest:request success:^(__unused AFHTTPRequestOperation *operation, id responseObject) {
             if (success) {
                 success(responseObject);
@@ -254,8 +276,46 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
         [requestOperation setUploadProgressBlock:progress];
 		
         [self.operationQueue addOperation:requestOperation];
-    }
+    }else{
+		NSLog(@"No data specified to send");
+	}
 }
+
+-(void)addPermissionHeadersForType:(AFAmazonPermissionType)permission {
+	NSMutableArray* xAmzHeaders = [[NSMutableArray alloc] init];
+	
+    switch (permission) {
+		case AFAmazonPermissionUndefined:
+			[[self requestSerializer] setValue:nil forHTTPHeaderField:@"x-amz-acl"];
+			break;
+        case AFAmazonPermissionPrivate:
+            [[self requestSerializer] setValue:@"private" forHTTPHeaderField:@"x-amz-acl"];
+            break;
+        case AFAmazonPermissionPublicRead:
+			[[self requestSerializer] setValue:@"public-read" forHTTPHeaderField:@"x-amz-acl"];
+			
+            break;
+        case AFAmazonPermissionPublicReadWrite:
+			[[self requestSerializer] setValue:@"public-read-write" forHTTPHeaderField:@"x-amz-acl"];
+			
+            break;
+        case AFAmazonPermissionAuthenticatedRead:
+			[[self requestSerializer] setValue:@"authenticated-read" forHTTPHeaderField:@"x-amz-acl"];
+			
+            break;
+        case AFAmazonPermissionBucketOwnerRead:
+			[[self requestSerializer] setValue:@"bucket-owner-read" forHTTPHeaderField:@"x-amz-acl"];
+			
+            break;
+        case AFAmazonPermissionOwnerFullControl:
+			[[self requestSerializer] setValue:@"bucket-owner-full-control" forHTTPHeaderField:@"x-amz-acl"];
+			
+            break;
+    }
+    [xAmzHeaders addObject:@"x-amz-acl"];
+}
+
+
 
 #pragma mark - NSKeyValueObserving
 
