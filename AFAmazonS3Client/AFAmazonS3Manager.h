@@ -209,6 +209,7 @@ typedef enum{
 //TODO: Needs documentation
 - (void)putObjectWithData:(NSData *)data
 			   permission:(AFAmazonPermissionType)permission
+				 mimeType:(NSString *)mimeType
           destinationPath:(NSString *)destinationPath
                parameters:(NSDictionary *)parameters
                  progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progress

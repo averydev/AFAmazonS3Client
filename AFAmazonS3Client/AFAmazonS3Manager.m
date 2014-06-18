@@ -206,6 +206,7 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
 
 - (void)putObjectWithData:(NSData *)data
 			   permission:(AFAmazonPermissionType)permission
+				 mimeType:(NSString *)mimeType
           destinationPath:(NSString *)destinationPath
                parameters:(NSDictionary *)parameters
                  progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progress
@@ -213,6 +214,7 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
                   failure:(void (^)(NSError *error))failure
 {
 	[self addPermissionHeadersForType:permission];
+	[self addMimeTypeHeader:mimeType];
     [self setObjectWithMethod:@"PUT" data:data destinationPath:destinationPath parameters:parameters progress:progress success:success failure:failure
 	 ];
 }
@@ -280,7 +282,11 @@ NSString * const AFAmazonS3ManagerErrorDomain = @"com.alamofire.networking.s3.er
 		NSLog(@"No data specified to send");
 	}
 }
-
+-(void)addMimeTypeHeader:(NSString *)mimeType
+{
+	[[self requestSerializer] setValue:mimeType forHTTPHeaderField:@"Content-Type"];
+	
+}
 -(void)addPermissionHeadersForType:(AFAmazonPermissionType)permission {
 	NSMutableArray* xAmzHeaders = [[NSMutableArray alloc] init];
 	
